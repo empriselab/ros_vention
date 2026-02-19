@@ -1,0 +1,13 @@
+<launch>
+  <param name="robot_description"
+         textfile="$(find ros_vention)/urdf/vention.urdf" />
+
+  <!-- publishes /joint_states (headless) -->
+  <node pkg="joint_state_publisher"
+        type="joint_state_publisher"
+        name="joint_state_publisher" />
+
+  <node pkg="robot_state_publisher"
+        type="robot_state_publisher"
+        name="robot_state_publisher" />
+</launch>

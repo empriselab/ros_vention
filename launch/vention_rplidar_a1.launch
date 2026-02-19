@@ -1,0 +1,57 @@
+<launch>
+  <!-- Stable: tied to physical USB port -->
+  <arg name="port1" default="/dev/serial/by-path/pci-0000:04:00.3-usb-0:2:1.0-port0"/>
+  <arg name="port2" default="/dev/serial/by-path/pci-0000:04:00.4-usb-0:2:1.0-port0"/>
+  <arg name="baud"  default="115200"/>
+
+  <!-- Robot root frame -->
+  <arg name="base_frame" default="vention_base_link"/>
+
+  <!-- ===== Lidar Right pose w.r.t. vention_base_link ===== -->
+  <!-- TODO: replace these with measured values (meters, radians) -->
+  <arg name="lidar_r_x"   default="0.2575"/>
+  <arg name="lidar_r_y"   default="-0.3377"/>
+  <arg name="lidar_r_z"   default="0.09"/>
+  <arg name="lidar_r_rr"  default="3.14159"/>  <!-- roll  -->
+  <arg name="lidar_r_rp"  default="0.0"/>  <!-- pitch -->
+  <arg name="lidar_r_ry"  default="0"/>  <!-- yaw   -->
+
+  <!-- ===== Lidar Left pose w.r.t. vention_base_link ===== -->
+  <!-- TODO: replace these with measured values (meters, radians) -->
+  <arg name="lidar_l_x"   default="0.2575"/>
+  <arg name="lidar_l_y"   default="0.3377"/>
+  <arg name="lidar_l_z"   default="0.090"/>
+  <arg name="lidar_l_rr"  default="3.14159"/>  <!-- roll  -->
+  <arg name="lidar_l_rp"  default="0.0"/>  <!-- pitch -->
+  <arg name="lidar_l_ry"  default="0"/>  <!-- yaw   -->
+
+  <!-- Static TFs: base -> lidar frames -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_base_to_lidar_r"
+        args="$(arg lidar_r_x) $(arg lidar_r_y) $(arg lidar_r_z) $(arg lidar_r_rr) $(arg lidar_r_rp) $(arg lidar_r_ry) $(arg base_frame) lidar_r"/>
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_base_to_lidar_l"
+        args="$(arg lidar_l_x) $(arg lidar_l_y) $(arg lidar_l_z) $(arg lidar_l_rr) $(arg lidar_l_rp) $(arg lidar_l_ry) $(arg base_frame) lidar_l"/>
+
+  <!-- Drivers -->
+  <group ns="lidar_r">
+    <node pkg="rplidar_ros" type="rplidarNode" name="rplidarNode" output="screen">
+      <param name="serial_port" value="$(arg port1)"/>
+      <param name="serial_baudrate" value="$(arg baud)"/>
+      <!-- Frame ID must match the TF child frame -->
+      <param name="frame_id" value="lidar_r"/>
+      <param name="angle_compensate" value="true"/>
+      <param name="inverted" value="false"/>
+    </node>
+  </group>
+
+  <group ns="lidar_l">
+    <node pkg="rplidar_ros" type="rplidarNode" name="rplidarNode" output="screen">
+      <param name="serial_port" value="$(arg port2)"/>
+      <param name="serial_baudrate" value="$(arg baud)"/>
+      <!-- Frame ID must match the TF child frame -->
+      <param name="frame_id" value="lidar_l"/>
+      <param name="angle_compensate" value="true"/>
+      <param name="inverted" value="false"/>
+    </node>
+  </group>
+</launch>

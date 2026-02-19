@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<robot name="my_robot">
+
+  <!-- Root link -->
+  <link name="vention_base_link">
+    <visual>
+      <!-- Adjust xyz/rpy if the STL appears offset/rotated -->
+      <origin xyz="0.3576 0.4515 -0.335" rpy="1.5708 0 -1.5708"/>
+      <geometry>
+        <!-- If your STL is in millimeters, you likely need scale="0.001 0.001 0.001" -->
+        <mesh filename="package://ros_vention/urdf/meshes/feeding_vention_modification.STL" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+
+    <!-- Optional collision (can be slow/heavy if STL is complex) -->
+    <!--
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://ros_vention/urdf/meshes/feeding_vention_modification.STL" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    -->
+  </link>
+
+  <link name="dummy_frame"/>
+
+  <joint name="dummy_joint" type="fixed">
+    <parent link="vention_base_link"/>
+    <child link="dummy_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+
+
+</robot>
