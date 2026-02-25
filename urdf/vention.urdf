@@ -34,6 +34,19 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
+  <!-- ===================== -->
+  <!-- RealSense D435 mount (fixed) -->
+  <!-- Parent: robot base -->
+  <!-- Child: RealSense base link (the frame RTAB-Map/RealSense expects) -->
+  <!-- ===================== -->
 
+  <link name="vention_base_cam_1_link"/>
+
+  <joint name="vention_base_link_to_vention_base_cam_1" type="fixed">
+    <parent link="vention_base_link"/>
+    <child link="vention_base_cam_1_link"/>
+    <!-- TODO: fill in measured mount transform -->
+    <origin xyz="0.3176 0.0 0.386" rpy="0.0 0.0 0.0"/>
+  </joint>
 
 </robot>

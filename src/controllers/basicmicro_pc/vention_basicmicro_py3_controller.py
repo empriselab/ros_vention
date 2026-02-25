@@ -1,193 +1,200 @@
 #!/usr/bin/env python3
 """
-Basic Movement Example for Basicmicro motor controllers.
+Basicmicro dual-controller example with robust reconnect using stable USB IDs.
 
-This example demonstrates the fundamental movement commands:
-- Setting duty cycle (analog to PWM)
-- Speed control
-- Mixed mode control for differential drive
+Key idea:
+- DO NOT use /dev/ttyACM0/1/2/3 directly (they renumber on disconnect).
+- Use stable udev symlinks:
+    /dev/serial/by-id/...
+  (or /dev/serial/by-path/... if by-id is not unique)
+
+What this script does:
+- Connects to two RoboClaw/Basicmicro controllers via their by-id paths.
+- On Errno 5 (EIO) or write-timeout, it will:
+    1) close
+    2) reopen by the SAME by-id path (so it reconnects to the correct physical device)
+    3) retry the command
+
+IMPORTANT:
+- You must set CTRL1_PORT_ID and CTRL2_PORT_ID to the correct by-id strings.
+  Run:  ls -l /dev/serial/by-id/
 """
 
 import time
 import logging
 import argparse
+import errno
 from basicmicro import Basicmicro
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
+# ---- SET THESE (or pass via CLI) ----
+# Example (yours will be different):
+# "/dev/serial/by-id/usb-Basicmicro_Inc_USB_Roboclaw_2x45A_ABC123-if00"
+CTRL1_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.4-usb-0:2.5:1.0"
+CTRL2_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.4-usb-0:2.6:1.0"
+
 
 class VentionBasicmicroPy3Controller:
-    def __init__(self, port='/dev/ttyACM0', baud=9600, address=0x80):
-        self.port = port
+    def __init__(self, port_id: str, baud: int = 9600, address: int = 0x80):
+        self.port_id = port_id  # stable path (by-id or by-path)
         self.baud = baud
         self.address = address
         self.controller = None
         self.connection_status = self.connect()
 
         if self.connection_status:
-            self.controller.ResetEncoders(self.address)
+            self.safe_call(self.controller.ResetEncoders, self.address)
 
-    def connect(self):
-        logger.info(f"Connecting to controller at {self.port}, baud rate {self.baud}")
+    def _open(self) -> Basicmicro:
+        """Open a Basicmicro connection using the stable port_id."""
+        bm = Basicmicro(self.port_id, self.baud)
+        bm.__enter__()  # Basicmicro relies on __enter__ for opening/init
+        return bm
+
+    def connect(self) -> bool:
+        logger.info(f"Connecting to controller at {self.port_id}, baud={self.baud}")
         try:
-            self.controller = Basicmicro(self.port, self.baud)
+            # best-effort close previous connection
+            try:
+                self.disconnect()
+            except Exception:
+                pass
 
-            # IMPORTANT: actually open/init the port (same as "with Basicmicro(...) as controller")
-            self.controller.__enter__()
+            self.controller = self._open()
 
-            version_result = self.controller.ReadVersion(self.address)
-            if version_result[0]:
-                logger.info(f"Connected to controller with firmware version: {version_result[1]}")
+            ok, ver = self.controller.ReadVersion(self.address)
+            if ok:
+                logger.info(f"Connected on {self.port_id} | firmware: {ver}")
                 return True
-            else:
-                logger.error("Failed to read firmware version!")
-                return False
+
+            logger.error(f"Failed to read firmware version on {self.port_id}")
+            return False
         except Exception as e:
-            logger.error(f"Connection error: {str(e)}")
+            logger.error(f"Connection error on {self.port_id}: {e}")
+            self.controller = None
             return False
 
     def disconnect(self):
-        if self.controller:
-            # Properly close context
-            self.controller.__exit__(None, None, None)
-            logger.info("Disconnected from controller")
+        if self.controller is not None:
+            try:
+                self.controller.__exit__(None, None, None)
+            finally:
+                self.controller = None
+            logger.info(f"Disconnected from controller ({self.port_id})")
 
-    def pwm_control(self, motor1_pwm, motor2_pwm):
-        logger.info(f"Setting Motor 1 PWM: {motor1_pwm}, Motor 2 PWM: {motor2_pwm}")
-        self.controller.DutyM1(self.address, motor1_pwm)
-        self.controller.DutyM2(self.address, motor2_pwm)
-    
-    def speed_control(self, motor1_speed, motor2_speed, reset_encoders=False):
-        logger.info(f"Setting Motor 1 Speed: {motor1_speed} counts/sec, Motor 2 Speed: {motor2_speed} counts/sec")
+    def reconnect(self, attempts: int = 10, delay_s: float = 0.25) -> bool:
+        """Reconnect to the SAME stable USB ID path."""
+        for k in range(1, attempts + 1):
+            logger.warning(f"[{self.port_id}] Reconnecting attempt {k}/{attempts}...")
+            if self.connect():
+                return True
+            time.sleep(delay_s)
+        logger.error(f"[{self.port_id}] Failed to reconnect after {attempts} attempts")
+        return False
+
+    def safe_call(self, fn, *args, retries: int = 1, reconnect_attempts: int = 10, **kwargs):
+        """
+        Execute controller call; if USB drops (Errno 5) or write-timeout occurs,
+        reconnect via stable USB ID and retry.
+        """
+        last_exc = None
+        for attempt in range(retries + 1):
+            try:
+                return fn(*args, **kwargs)
+            except OSError as e:
+                last_exc = e
+                if getattr(e, "errno", None) == errno.EIO:  # Errno 5
+                    logger.warning(f"[{self.port_id}] USB EIO (Errno 5) in {fn.__name__}: {e}")
+                    if not self.reconnect(attempts=reconnect_attempts):
+                        raise
+                    continue
+                raise
+            except Exception as e:
+                last_exc = e
+                msg = str(e).lower()
+                if "timeout" in msg and ("write" in msg or "sending" in msg):
+                    logger.warning(f"[{self.port_id}] Write-timeout in {fn.__name__}: {e}")
+                    if not self.reconnect(attempts=reconnect_attempts):
+                        raise
+                    continue
+                raise
+        raise last_exc
+
+    # --- Commands ---
+    def speed_control(self, motor1_speed, motor2_speed, reset_encoders: bool = False):
+        logger.info(f"[{self.port_id}] SpeedM1M2: m1={motor1_speed}, m2={motor2_speed}")
         if reset_encoders:
-            self.controller.ResetEncoders(self.address)
-        
-        self.controller.SpeedM1M2(self.address, motor1_speed, motor2_speed)
-        enc1 = self.controller.ReadEncM1(self.address)
-        enc2 = self.controller.ReadEncM2(self.address)
-        print(f"enc1={enc1}, enc2={enc2}")
+            self.safe_call(self.controller.ResetEncoders, self.address, retries=2)
 
-    def speed_controlled_position_move(
-        self,
-        motor1_speed,
-        motor2_speed,
-        motor1_target,
-        motor2_target,
-        timeout_s=10.0,
-        poll_s=0.2,
-        settle_reads=3,
-        stop_on_timeout=True,
-    ):
-        logger.info("\n=== SPEED-CONTROLLED POSITION MOVEMENT ===")
+        self.safe_call(self.controller.SpeedM1M2, self.address, motor1_speed, motor2_speed, retries=2)
 
-        buffer = 0
+    def read_encoders(self):
+        enc1 = self.safe_call(self.controller.ReadEncM1, self.address, retries=1)
+        enc2 = self.safe_call(self.controller.ReadEncM2, self.address, retries=1)
+        return enc1, enc2
 
-        logger.info(f"M1: target={motor1_target}, speed={motor1_speed}")
-        logger.info(f"M2: target={motor2_target}, speed={motor2_speed}")
-
-        # Issue commands
-        M1_status = None
-        M2_status = None
-        M1_status = self.controller.SpeedPositionM1(self.address, motor1_speed, motor1_target, buffer)
-        # M2_status = self.controller.SpeedPositionM2(self.address, motor2_speed, motor2_target, buffer)
-
-        print(f"M1 command status: {M1_status}, M2 command status: {M2_status}")
-
-        start_t = time.time()
-        zero_count = 0
-
-        while True:
-            elapsed = time.time() - start_t
-
-            # Timeout
-            if elapsed > timeout_s:
-                logger.error(f"Timeout after {timeout_s:.1f}s waiting for motion complete.")
-                if stop_on_timeout:
-                    try:
-                        self.controller.SpeedM1M2(self.address, 0, 0)
-                    except Exception as e:
-                        logger.error(f"Failed to stop motors on timeout: {e}")
-                raise TimeoutError(f"SpeedPosition timed out after {timeout_s:.1f}s")
-
-            # Read status
-            buffer_status = self.controller.ReadBuffers(self.address)
-            enc1 = self.controller.ReadEncM1(self.address)
-            enc2 = self.controller.ReadEncM2(self.address)
-            print(f"enc1={enc1}, enc2={enc2}")
-
-            # Log if buffer read succeeded
-            if buffer_status[0]:
-                b = buffer_status[1]
-                e1 = enc1[1] if enc1[0] else None
-                e2 = enc2[1] if enc2[0] else None
-                logger.info(f"t={elapsed:5.2f}s  enc1={e1} enc2={e2}  buffer={b}")
-            else:
-                logger.warning(f"t={elapsed:5.2f}s  ReadBuffers failed")
-
-            # Completion condition (debounced)
-            if buffer_status[0] and buffer_status[1] == 0:
-                zero_count += 1
-                if zero_count >= settle_reads:
-                    logger.info("Movement complete")
-                    break
-            else:
-                zero_count = 0
-
-            time.sleep(poll_s)
-            
+    def stop(self):
+        # Best-effort stop (try speed stop, then duty stop)
+        try:
+            self.safe_call(self.controller.SpeedM1M2, self.address, 0, 0, retries=2)
+        except Exception:
+            pass
+        try:
+            self.safe_call(self.controller.DutyM1M2, self.address, 0, 0, retries=2)
+        except Exception:
+            pass
 
 
 def main():
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Basicmicro motor controller basic movement example')
-    parser.add_argument('-p', '--port', type=str, default='/dev/ttyACM0', help='Serial port (e.g., /dev/ttyACM0, COM3)')
-    parser.add_argument('-b', '--baud', type=int, default=9600, help='Baud rate (default: 38400)')
-    parser.add_argument('-a', '--address', type=lambda x: int(x, 0), default=0x80, 
-                        help='Controller address (default: 0x80)')
+    parser = argparse.ArgumentParser(description="Dual RoboClaw/Basicmicro controller test using /dev/serial/by-id")
+    parser.add_argument("--ctrl1", type=str, default=CTRL1_PORT_ID_DEFAULT,
+                        help="Controller 1 port (stable): /dev/serial/by-id/... or /dev/serial/by-path/...")
+    parser.add_argument("--ctrl2", type=str, default=CTRL2_PORT_ID_DEFAULT,
+                        help="Controller 2 port (stable): /dev/serial/by-id/... or /dev/serial/by-path/...")
+    parser.add_argument("-b", "--baud", type=int, default=9600, help="Baud rate (default: 9600)")
+    parser.add_argument("-a", "--address", type=lambda x: int(x, 0), default=0x80,
+                        help="Controller address (default: 0x80)")
+    parser.add_argument("--speed", type=int, default=-100, help="Speed setpoint (counts/sec)")
+    parser.add_argument("--run_s", type=float, default=5.0, help="Run duration seconds")
     args = parser.parse_args()
-    
-    logger.info(f"Connecting to controller at {args.port}, baud rate {args.baud}")
-    
+
+    if "REPLACE_ME" in args.ctrl1 or "REPLACE_ME" in args.ctrl2:
+        logger.error("You must set --ctrl1 and --ctrl2 to real /dev/serial/by-id/* paths.")
+        logger.error("Run: ls -l /dev/serial/by-id/")
+        return
+
+    c1 = VentionBasicmicroPy3Controller(args.ctrl1, args.baud, args.address)
+    c2 = VentionBasicmicroPy3Controller(args.ctrl2, args.baud, args.address)
+
+    if not c1.connection_status or not c2.connection_status:
+        logger.error("Failed to connect to one or both controllers. Exiting.")
+        return
+
     try:
-        vention = VentionBasicmicroPy3Controller(args.port, args.baud, args.address)
-        vention_2 = VentionBasicmicroPy3Controller('/dev/ttyACM1', args.baud, args.address)
-        if not vention.connection_status:
-            logger.error("Failed to connect to controller. Exiting.")
-            return
-        # example usage of the controller methods
+        # Start both
+        c1.speed_control(args.speed, args.speed)
+        c2.speed_control(args.speed, args.speed)
 
-        speed = -1000  # counts per second
-        vention.speed_control(speed, speed)  # Motor 1 forward, Motor 2 forward at 1500 counts/sec
-        start_t = time.time()
-        vention_2.speed_control(speed, speed)  # Motor 1 forward, Motor 2 forward at 1500 counts/sec
-        while time.time() - start_t < 5.0:
-            enc1 = vention.controller.ReadEncM1(vention.address)
-            enc2 = vention.controller.ReadEncM2(vention.address)
-            print(f"Controller 1 - enc1={enc1}, enc2={enc2}")
-            enc1_2 = vention_2.controller.ReadEncM1(vention_2.address)
-            enc2_2 = vention_2.controller.ReadEncM2(vention_2.address)
-            print(f"Controller 2 - enc1={enc1_2}, enc2={enc2_2}")
-        vention.speed_control(0, 0)  # Stop both motors
-        vention_2.speed_control(0, 0)  # Stop both motors
+        start = time.time()
+        while time.time() - start < args.run_s:
+            e1, e2 = c1.read_encoders()
+            e1b, e2b = c2.read_encoders()
+            print(f"C1 [{c1.port_id}] enc1={e1} enc2={e2} | C2 [{c2.port_id}] enc1={e1b} enc2={e2b}")
+            time.sleep(0.2)
 
-        # vention_2.speed_controlled_position_move(
-        #     motor1_speed=1000,
-        #     motor2_speed=1000,
-        #     motor1_target=10000,
-        #     motor2_target=10000,
-        #     timeout_s=15.0
-        # )
-        vention.disconnect()
-        vention_2.disconnect()
+        # Stop both
+        c1.stop()
+        c2.stop()
 
+    finally:
+        c1.disconnect()
+        c2.disconnect()
 
-    except Exception as e:
-        logger.error(f"Error during test: {str(e)}")
 
 if __name__ == "__main__":
     main()
