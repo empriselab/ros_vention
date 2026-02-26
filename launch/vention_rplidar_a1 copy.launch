@@ -61,4 +61,22 @@
       <param name="inverted" value="false"/>
     </node>
   </group>
+
+  <!-- ===== LaserScan merge node =====
+       Assumes you saved the Python node as: ros_vention/scripts/merge_laserscans.py
+       and made it executable: chmod +x merge_laserscans.py
+  -->
+  <node pkg="ros_vention" type="merge_laserscans.py" name="merge_laserscans" output="screen">
+    <param name="scan_topic_1" value="$(arg scan_topic_1)"/>
+    <param name="scan_topic_2" value="$(arg scan_topic_2)"/>
+    <param name="output_topic" value="$(arg merged_scan_topic)"/>
+    <param name="target_frame" value="$(arg target_frame)"/>
+
+    <param name="angle_min" value="$(arg angle_min)"/>
+    <param name="angle_max" value="$(arg angle_max)"/>
+    <param name="angle_increment" value="$(arg angle_increment)"/>
+
+    <param name="sync_slop" value="$(arg sync_slop)"/>
+    <param name="sync_queue" value="$(arg sync_queue)"/>
+  </node>
 </launch>

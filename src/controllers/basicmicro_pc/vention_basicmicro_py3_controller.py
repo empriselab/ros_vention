@@ -150,6 +150,50 @@ class VentionBasicmicroPy3Controller:
             pass
 
 
+class VentionBase(VentionBasicmicroPy3Controller):
+    def __init__(self, port_id: str, baud: int = 9600, address: int = 0x80):
+        super().__init__(port_id, baud, address)
+        # You can add more base-specific methods here if needed
+        self.base_r = VentionBasicmicroPy3Controller(CTRL1_PORT_ID_DEFAULT, baud, address)
+        self.base_l = VentionBasicmicroPy3Controller(CTRL2_PORT_ID_DEFAULT, baud, address)
+        if not self.base_r.connection_status or not self.base_l.connection_status:
+            logger.error("Failed to connect to one or both base controllers. Exiting.")
+            return
+        else:
+            logger.info("Successfully connected to both base controllers.")
+
+    def translate(self, linear_speed):
+        '''
+        Translate linear speed in encoder counts/sec,
+        - "+" to move forward,
+        - "-" to move backward.
+        '''
+        self.base_r.speed_control(linear_speed, linear_speed)
+        self.base_l.speed_control(linear_speed, linear_speed)
+    
+    def rotate(self, angular_speed):
+        '''
+        Rotate in place with angular speed in encoder counts/sec,
+        - "+" to rotate counterclockwise,
+        - "-" to rotate clockwise.
+        '''
+        self.base_r.speed_control(angular_speed, angular_speed)
+        self.base_l.speed_control(-angular_speed, -angular_speed)   
+
+    def stop(self):
+        self.base_r.stop()
+        self.base_l.stop()  
+
+    def disconnect(self):
+        self.base_r.disconnect()
+        self.base_l.disconnect()
+        return super().disconnect() 
+    
+    def read_encoders(self):
+        enc_r1, enc_r2 = self.base_r.read_encoders()
+        enc_l1, enc_l2 = self.base_l.read_encoders()
+        return (enc_r1, enc_r2), (enc_l1, enc_l2)
+    
 def main():
     parser = argparse.ArgumentParser(description="Dual RoboClaw/Basicmicro controller test using /dev/serial/by-id")
     parser.add_argument("--ctrl1", type=str, default=CTRL1_PORT_ID_DEFAULT,

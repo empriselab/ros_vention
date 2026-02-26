@@ -1,0 +1,28 @@
+<launch>
+  <!-- Make sure TF + /map + scans are already running:
+       - Cartographer (publishing map->odom)
+       - UKF/VSLAM (publishing odom->vention_base_link)
+       - lidar topics: /lidar_l/scan and /lidar_r/scan
+  -->
+
+  <!-- move_base -->
+  <node pkg="move_base" type="move_base" name="move_base" output="screen">
+    <rosparam file="$(find ros_vention)/config/costmap_common.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/global_costmap.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/local_costmap.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/dwa_local_planner.yaml" command="load"/>
+  </node>
+
+  <!-- cmd_vel bridge: /cmd_vel -> Basicmicro -->
+  <node pkg="ros_vention"
+        type="cmd_vel_bridge_basicmicro.py"
+        name="cmd_vel_bridge_basicmicro"
+        output="screen"
+        cwd="node">
+    <!-- conservative defaults; tune these -->
+    <param name="linear_scale" value="800.0"/>
+    <param name="angular_scale" value="600.0"/>
+    <param name="max_speed_units" value="2500"/>
+    <param name="timeout_s" value="0.3"/>
+  </node>
+</launch>
