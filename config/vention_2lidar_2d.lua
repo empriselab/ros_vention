@@ -7,9 +7,9 @@ options = {
 
   map_frame = "map",
   tracking_frame = "vention_base_link",      -- you already have TF to lidars
-  published_frame = "vention_base_link",
+  published_frame = "odom",
   odom_frame = "odom",
-  provide_odom_frame = true,                -- because you already have odom->base_link (from vSLAM right now)
+  provide_odom_frame = false,                -- because you already have odom->base_link (from vSLAM right now)
   publish_frame_projected_to_2d = true,
 
   use_odometry = true,                       -- uses your /odom tf

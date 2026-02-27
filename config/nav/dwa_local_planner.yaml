@@ -1,6 +1,6 @@
 DWAPlannerROS:
   max_vel_x: 0.3
-  min_vel_x: -0.3
+  min_vel_x: 0
   max_vel_theta: 1.0
   min_vel_theta: 0.2
 
@@ -17,3 +17,6 @@ DWAPlannerROS:
   path_distance_bias: 32.0
   goal_distance_bias: 20.0
   occdist_scale: 0.05
+
+  meter_scoring: true
+  transform_tolerance: 0.5

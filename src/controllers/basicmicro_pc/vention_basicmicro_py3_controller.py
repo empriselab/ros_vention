@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 # ---- SET THESE (or pass via CLI) ----
 # Example (yours will be different):
 # "/dev/serial/by-id/usb-Basicmicro_Inc_USB_Roboclaw_2x45A_ABC123-if00"
-CTRL1_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.4-usb-0:2.5:1.0"
-CTRL2_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.4-usb-0:2.6:1.0"
+CTRL1_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.3-usb-0:2.2:1.0"
+CTRL2_PORT_ID_DEFAULT = "/dev/serial/by-path/pci-0000:04:00.3-usb-0:2.4:1.0"
 
 
 class VentionBasicmicroPy3Controller:

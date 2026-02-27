@@ -7,11 +7,16 @@
 
   <!-- move_base -->
   <node pkg="move_base" type="move_base" name="move_base" output="screen">
-    <rosparam file="$(find ros_vention)/config/costmap_common.yaml" command="load"/>
-    <rosparam file="$(find ros_vention)/config/global_costmap.yaml" command="load"/>
-    <rosparam file="$(find ros_vention)/config/local_costmap.yaml" command="load"/>
-    <rosparam file="$(find ros_vention)/config/dwa_local_planner.yaml" command="load"/>
+    <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS"/>
+    <rosparam file="$(find ros_vention)/config/nav/costmap_common.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/nav/global_costmap.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/nav/local_costmap.yaml" command="load"/>
+    <rosparam file="$(find ros_vention)/config/nav/dwa_local_planner.yaml" command="load"/>
   </node>
+
+
+
+
 
   <!-- cmd_vel bridge: /cmd_vel -> Basicmicro -->
   <node pkg="ros_vention"
