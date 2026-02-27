@@ -6,12 +6,21 @@
   -->
 
   <!-- move_base -->
+  <!-- move_base -->
   <node pkg="move_base" type="move_base" name="move_base" output="screen">
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS"/>
+
     <rosparam file="$(find ros_vention)/config/nav/costmap_common.yaml" command="load"/>
     <rosparam file="$(find ros_vention)/config/nav/global_costmap.yaml" command="load"/>
     <rosparam file="$(find ros_vention)/config/nav/local_costmap.yaml" command="load"/>
     <rosparam file="$(find ros_vention)/config/nav/dwa_local_planner.yaml" command="load"/>
+
+    <param name="planner_patience" value="5.0"/>
+    <param name="controller_patience" value="5.0"/>
+
+    <!-- optional but often helpful for your exact symptom -->
+    <param name="planner_frequency" value="1.0"/>
+    <param name="controller_frequency" value="10.0"/>
   </node>
 
 
