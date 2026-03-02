@@ -1,0 +1,27 @@
+<launch>
+  <arg name="port_left" default="/dev/serial/by-path/pci-0000:04:00.4-usb-0:2:1.0-port0"/>
+  <arg name="baud"  default="115200"/>
+
+  <arg name="base_frame" default="vention_base_link"/>
+
+  <arg name="lidar_l_x"   default="0.2575"/>
+  <arg name="lidar_l_y"   default="0.3377"/>
+  <arg name="lidar_l_z"   default="0.090"/>
+  <arg name="lidar_l_rr"  default="3.14159"/>
+  <arg name="lidar_l_rp"  default="0.0"/>
+  <arg name="lidar_l_ry"  default="0.0"/>
+
+  <!-- base -> lidar_l (quaternion for roll=pi,pitch=0,yaw=0 => 1 0 0 0) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_base_to_lidar_l"
+        args="$(arg lidar_l_x) $(arg lidar_l_y) $(arg lidar_l_z) 1 0 0 0 $(arg base_frame) lidar_l"/>
+
+  <group ns="lidar_l">
+    <node pkg="rplidar_ros" type="rplidarNode" name="rplidarNode" output="screen">
+      <param name="serial_port" value="$(arg port_left)"/>
+      <param name="serial_baudrate" value="$(arg baud)"/>
+      <param name="frame_id" value="lidar_l"/>
+      <param name="angle_compensate" value="true"/>
+      <param name="inverted" value="false"/>
+    </node>
+  </group>
+</launch>

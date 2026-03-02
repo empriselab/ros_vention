@@ -1,0 +1,23 @@
+<launch>
+  <arg name="config_dir" default="/home/yyt/catkin_ws/src/ros_vention/config"/>
+  <arg name="config_basename" default="vention_lidar_l_2d.lua"/>
+
+  <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node" output="screen"
+        args="-configuration_directory $(arg config_dir)
+              -configuration_basename $(arg config_basename)">
+
+    <!-- Single lidar -->
+    <remap from="scan" to="/lidar_l/scan"/>
+
+    <!-- Odometry: cartographer expects nav_msgs/Odometry on "odom" -->
+    <remap from="odom" to="/rtabmap/odom"/>
+    <!-- alternatively:
+    <remap from="odom" to="/odometry/filtered"/>
+    -->
+  </node>
+
+  <node pkg="cartographer_ros" type="cartographer_occupancy_grid_node" name="occupancy_grid_node" output="screen">
+    <param name="resolution" value="0.05"/>
+    <param name="publish_period_sec" value="1.0"/>
+  </node>
+</launch>

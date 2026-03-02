@@ -1,0 +1,102 @@
+<launch>
+  <!-- ===================== -->
+  <!-- Args -->
+  <!-- ===================== -->
+  <arg name="offline" default="false"/>
+
+  <!-- Frames -->
+  <arg name="base_link_frame" default="vention_base_link"/>
+  <arg name="odom_frame" default="odom"/>
+  <arg name="map_frame" default="map"/>
+
+  <!-- RealSense name/namespace -->
+  <arg name="realsense_name" default="vention_base_cam_1"/>
+
+  <!-- ===================== -->
+  <!-- RealSense (named /vention_base_cam_1/...) -->
+  <!-- ===================== -->
+  <include unless="$(arg offline)"
+           file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <!-- This is the key line -->
+    <arg name="camera" value="$(arg realsense_name)"/>
+
+    <arg name="align_depth" value="true"/>
+    <arg name="linear_accel_cov" value="1.0"/>
+    <arg name="unite_imu_method" value="linear_interpolation"/>
+  </include>
+
+  <!-- ===================== -->
+  <!-- IMU filter -->
+  <!-- ===================== -->
+  <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter">
+    <param name="use_mag" type="bool" value="false"/>
+    <param name="_publish_tf" type="bool" value="false"/>
+    <param name="_world_frame" type="string" value="enu"/>
+    <!-- IMU topic moves under the new camera namespace -->
+    <remap from="/imu/data_raw" to="/$(arg realsense_name)/imu"/>
+  </node>
+
+  <!-- ===================== -->
+  <!-- RTAB-Map -->
+  <!-- ===================== -->
+  <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+    <arg name="args" value="--delete_db_on_start"/>
+
+    <!-- Update to the namespaced RealSense topics -->
+    <arg name="rgb_topic" value="/$(arg realsense_name)/color/image_raw"/>
+    <arg name="depth_topic" value="/$(arg realsense_name)/aligned_depth_to_color/image_raw"/>
+    <arg name="camera_info_topic" value="/$(arg realsense_name)/color/camera_info"/>
+    <arg name="depth_camera_info_topic" value="/$(arg realsense_name)/depth/camera_info"/>
+
+    <arg name="frame_id" value="$(arg base_link_frame)"/>
+    <arg name="odom_frame_id" value="$(arg odom_frame)"/>
+
+    <arg name="rtabmapviz" value="false"/>
+    <arg name="rviz" value="false"/>
+  </include>
+
+  <!-- Disable TF publishing from RTAB-Map -->
+  <param name="/rtabmap/rgbd_odometry/publish_tf" value="false"/>
+  <param name="/rtabmap/rtabmap/publish_tf" value="false"/>
+  <param name="/rtabmap/rgbd_odometry/publish_tf_odom" value="false"/>
+  <param name="/rtabmap/rtabmap/publish_tf_map" value="false"/>
+
+  <!-- ===================== -->
+  <!-- robot_localization UKF -->
+  <!-- ===================== -->
+  <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+
+  <param name="/ukf_se/frequency" value="50"/>
+  <param name="/ukf_se/sensor_timeout" value="0.1"/>
+  <param name="/ukf_se/two_d_mode" value="true"/>
+
+  <param name="/ukf_se/map_frame" value="$(arg map_frame)"/>
+  <param name="/ukf_se/odom_frame" value="$(arg odom_frame)"/>
+  <param name="/ukf_se/base_link_frame" value="$(arg base_link_frame)"/>
+  <param name="/ukf_se/world_frame" value="$(arg odom_frame)"/>
+
+  <param name="/ukf_se/publish_tf" value="true"/>
+  <param name="/ukf_se/use_control" value="false"/>
+
+  <param name="/ukf_se/odom0" value="/rtabmap/odom"/>
+  <rosparam param="/ukf_se/odom0_config">
+    [true,  true,  false,
+     false, false, true,
+     true,  true,  false,
+     false, false, true,
+     false, false, false]
+  </rosparam>
+
+  <param name="/ukf_se/imu0" value="/imu/data"/>
+  <rosparam param="/ukf_se/imu0_config">
+    [false, false, false,
+     false, false, true,
+     false, false, false,
+     false, false, true,
+     true,  false, false]
+  </rosparam>
+  <param name="/ukf_se/imu0_remove_gravitational_acceleration" value="true"/>
+
+  <param name="/ukf_se/odom0_pose_rejection_threshold" value="1000"/>
+  <param name="/ukf_se/odom0_twist_rejection_threshold" value="1000"/>
+</launch>

@@ -1,0 +1,25 @@
+<launch>
+  <!-- Your existing lidar drivers + TF publishers can be launched separately or included here -->
+
+  <arg name="config_dir" default="/home/yyt/catkin_ws/src/ros_vention/config"/>
+  <arg name="config_basename" default="vention_2lidar_2d.lua"/>
+
+  <!-- Cartographer node -->
+  <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node" output="screen"
+        args="-configuration_directory $(arg config_dir)
+              -configuration_basename $(arg config_basename)">
+    <!-- For num_laser_scans=2, cartographer expects topics: scan and scan_1 -->
+    <remap from="scan_2"   to="/lidar_l/scan"/>
+    <remap from="scan_1" to="/lidar_r/scan"/>
+    <!-- Odometry: cartographer expects nav_msgs/Odometry on "odom" -->
+    <remap from="odom" to="/rtabmap/odom"/>
+    <!-- If you publish odom as a topic instead of TF, cartographer can also subscribe,
+         but in ROS1 it commonly uses TF odom->base_link. -->
+  </node>
+
+  <!-- Publish occupancy grid as /map -->
+  <node pkg="cartographer_ros" type="cartographer_occupancy_grid_node" name="occupancy_grid_node" output="screen">
+    <param name="resolution" value="0.05"/>
+    <param name="publish_period_sec" value="1.0"/>
+  </node>
+</launch>

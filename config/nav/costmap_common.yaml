@@ -1,0 +1,39 @@
+
+# If your lidar sees something at 9 meters → it will NOT be added as an obstacle.
+# If it sees something at 5 meters → it will.
+obstacle_range: 8.0
+
+# Maximum distance (meters) at which free space will be cleared.
+raytrace_range: 10.0
+
+# After detecting an obstacle, expand it outward by 0.35 meters.
+inflation_radius: 0.4
+
+# TODO: update footprint to match your robot (meters)
+#            y
+#            ↑
+#   (-0.405, 0.355)      (0.405, 0.355)
+#              ┌──────────────────────┐
+#              │                      │
+#              │        ROBOT         │
+#              │                      │
+#              └──────────────────────┘
+#   (-0.405,-0.355)      (0.405,-0.355)
+#                          → x
+
+                          
+footprint: [[0.405, 0.355], [0.405, -0.355], [-0.405, -0.355], [-0.405, 0.355]]
+
+observation_sources: lidar_l lidar_r
+
+lidar_l:
+  data_type: LaserScan
+  topic: /lidar_l/scan
+  marking: true
+  clearing: true
+
+lidar_r:
+  data_type: LaserScan
+  topic: /lidar_r/scan
+  marking: true
+  clearing: true
