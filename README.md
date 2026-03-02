@@ -40,6 +40,7 @@ roslaunch ros_vention vention_description.launch
 ```
 
 ## Start Lidar
+You may need to change the usb id/path of lidars in the launch file.
 ```
 roslaunch ros_vention vention_rplidar_a1.launch
 ```
@@ -59,6 +60,7 @@ roslaunch ros_vention vention_cartographer_lidar.launch
 ```
 
 ## Start move_base For Navigation
+You may need to change the Arduino usb id cmd_vel_bridge_basicmicro.py.
 ```
 roslaunch ros_vention vention_navigation.launch
 ```
