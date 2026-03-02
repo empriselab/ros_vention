@@ -33,6 +33,7 @@
         name="cmd_vel_bridge_basicmicro"
         output="screen"
         cwd="node">
+    
     <!-- conservative defaults; tune these -->
     <param name="linear_scale" value="800.0"/>
     <param name="angular_scale" value="600.0"/>
