@@ -1,2 +1,3 @@
 urdf/meshes/*.STL
 urdf/meshes/*.stl
+*/__pycache__/*

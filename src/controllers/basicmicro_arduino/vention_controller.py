@@ -1,92 +1,170 @@
-import pygame
-import serial
+#!/usr/bin/env python3
 import time
+import argparse
 
-# === CONFIGURATION ===
-SERIAL_PORT = '/dev/ttyACM0'   # arduio port
-BAUD_RATE = 9600
-DEADBAND = 0.4
-COMMAND_INTERVAL = 0.01  # seconds
+import pygame
 
-# === INIT SERIAL ===
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0)
-time.sleep(2)  # Wait for Arduino to reset
+from vention_arduino_control import VentionBase
 
-# === INIT PYGAME ===
-pygame.init()
-pygame.joystick.init()
 
-if pygame.joystick.get_count() == 0:
-    raise Exception("No game controller connected!")
+DEADBAND = 0.12
+COMMAND_HZ = 5.0
+DEFAULT_PORT = "/dev/ttyACM0"
+DEFAULT_BAUD = 115200
 
-joystick = pygame.joystick.Joystick(0)
-joystick.init()
-print(f"Controller: {joystick.get_name()}")
+# Reasonable starting values; tune on robot if needed.
+DEFAULT_MAX_TRANSLATION_SPEED = 400
+DEFAULT_MAX_ROTATION_SPEED = 300
+TURN_IN_PLACE_THRESHOLD = 0.20
 
-last_cmd = ''
 
-def send_command(cmd: str):
-    """Send a single-character command if it changed."""
-    global last_cmd
-    if cmd != last_cmd:
-        ser.write(cmd.encode('utf-8'))
-        print(f"[→] Sent command: '{cmd}'")
-        last_cmd = cmd
+def apply_deadband(value: float, deadband: float) -> float:
+    if abs(value) < deadband:
+        return 0.0
+    return value
 
-# Track previous button state for edge detection
-prev_lb = 0  # LB (often button 4)
-prev_rb = 0  # RB (often button 5)
 
-try:
-    while True:
-        pygame.event.pump()
+def clamp(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, value))
 
-        # Axes: left stick
-        x_axis = joystick.get_axis(0)  # Left stick X
-        y_axis = joystick.get_axis(1)  # Left stick Y
 
-        # Buttons (Xbox mapping; may vary by controller/OS)
-        lb = joystick.get_button(4)  # LB = speed down
-        rb = joystick.get_button(5)  # RB = speed up
+def compute_wheel_speeds(
+    x_axis: float,
+    y_axis: float,
+    max_translation: int,
+    max_rotation: int,
+) -> tuple[int, int]:
+    """
+    Xbox-style left stick mapping:
+      - stick up    -> forward
+      - stick down  -> backward
+      - stick left  -> turn left
+      - stick right -> turn right
 
-        # Hat/D-pad (optional; not used for speed, but you could extend)
-        # hat_x, hat_y = joystick.get_hat(0) if joystick.get_numhats() > 0 else (0, 0)
+    pygame usually reports:
+      - y_axis < 0 when pushing stick upward
+      - x_axis < 0 when pushing stick left
 
-        # ---- Movement command from stick with deadband ----
-        cmd = 's'  # Default: stop
-        if abs(y_axis) > DEADBAND:
-            cmd = 'f' if y_axis < 0 else 'b'
-        elif abs(x_axis) > DEADBAND:
-            cmd = 'l' if x_axis < 0 else 'r'
+    Differential-drive mix:
+      left  = v + w
+      right = v - w
 
-        send_command(cmd)
+    In this codebase:
+      Driver A = right side
+      Driver B = left side
 
-        # ---- Speed adjust (edge-triggered) ----
-        # RB rising edge → '+'
-        if rb and not prev_rb:
-            ser.write(b'+')
-            print("[→] Speed +")
-            # don't change last_cmd so movement cmd keeps flowing
+    So:
+      A = right = v - w
+      B = left  = v + w
+    """
+    x = apply_deadband(x_axis, DEADBAND)
+    y = apply_deadband(y_axis, DEADBAND)
 
-        # LB rising edge → '-'
-        if lb and not prev_lb:
-            ser.write(b'-')
-            print("[→] Speed -")
+    # Forward when pushing stick up
+    v = -y
+    w = x
 
-        prev_lb, prev_rb = lb, rb
+    # If translation is very small, allow cleaner turn-in-place behavior
+    if abs(v) < TURN_IN_PLACE_THRESHOLD:
+        v = 0.0
 
-        time.sleep(COMMAND_INTERVAL)
+    speed_v = v * max_translation
+    speed_w = w * max_rotation
 
-except KeyboardInterrupt:
-    send_command('s')
-    print("\n[!] Stopped. Exiting...")
-finally:
+    # A = right wheel, B = left wheel
+    speed_a = int(clamp(speed_v - speed_w, -max_translation, max_translation))
+    speed_b = int(clamp(speed_v + speed_w, -max_translation, max_translation))
+
+    return speed_a, speed_b
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Joystick teleop for Vention base via Arduino bridge"
+    )
+    parser.add_argument("--port", default=DEFAULT_PORT, help="Arduino serial port")
+    parser.add_argument("--baud", type=int, default=DEFAULT_BAUD, help="Arduino baud rate")
+    parser.add_argument(
+        "--max_translation",
+        type=int,
+        default=DEFAULT_MAX_TRANSLATION_SPEED,
+        help="Maximum forward/backward wheel speed",
+    )
+    parser.add_argument(
+        "--max_rotation",
+        type=int,
+        default=DEFAULT_MAX_ROTATION_SPEED,
+        help="Maximum turning contribution",
+    )
+    args = parser.parse_args()
+
+    pygame.init()
+    pygame.joystick.init()
+
+    if pygame.joystick.get_count() == 0:
+        raise RuntimeError("No game controller connected.")
+
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    print(f"Controller: {joystick.get_name()}")
+
+    base = VentionBase(args.port, args.baud)
+    if not base.bridge.connection_status:
+        raise RuntimeError(f"Failed to connect to Arduino on {args.port}")
+
+    period = 1.0 / COMMAND_HZ
+    last_sent: tuple[int, int] | None = None
+
     try:
-        joystick.quit()
-    except Exception:
-        pass
-    pygame.quit()
-    try:
-        ser.close()
-    except Exception:
-        pass
+        while True:
+            pygame.event.pump()
+
+            # Left stick axes
+            x_axis = joystick.get_axis(0)
+            y_axis = joystick.get_axis(1)
+
+            # print(f"[raw] x={x_axis:.3f} y={y_axis:.3f}")
+
+            speed_a, speed_b = compute_wheel_speeds(
+                x_axis,
+                y_axis,
+                args.max_translation,
+                args.max_rotation,
+            )
+
+            cmd = (speed_a, speed_b)
+            if cmd != last_sent:
+                print(f"[→] A={speed_a} B={speed_b}")
+                last_sent = cmd
+
+            base.set_speeds(speed_a, speed_b)
+
+            # Print any pending Arduino output every loop tick (runs even after dedup stops sends)
+            if base.bridge.ser and base.bridge.ser.in_waiting:
+                data = base.bridge.ser.read(base.bridge.ser.in_waiting).decode(errors="replace")
+                for line in data.splitlines():
+                    if line.strip():
+                        print(f"[Arduino] {line.strip()}")
+
+            time.sleep(period)
+
+    except KeyboardInterrupt:
+        print("\n[!] Stopping.")
+    finally:
+        try:
+            base.stop()
+        except Exception:
+            pass
+        try:
+            base.disconnect()
+        except Exception:
+            pass
+        try:
+            joystick.quit()
+        except Exception:
+            pass
+        pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

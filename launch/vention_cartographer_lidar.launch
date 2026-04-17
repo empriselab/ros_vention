@@ -1,7 +1,7 @@
 <launch>
   <!-- Your existing lidar drivers + TF publishers can be launched separately or included here -->
 
-  <arg name="config_dir" default="/home/yyt/catkin_ws/src/ros_vention/config"/>
+  <arg name="config_dir" default="/home/isacc/navigation_ws/src/ros_vention/config"/>
   <arg name="config_basename" default="vention_2lidar_2d.lua"/>
 
   <!-- Cartographer node -->

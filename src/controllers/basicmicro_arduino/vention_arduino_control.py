@@ -231,7 +231,7 @@ class VentionBase:
         if (now - self._last_sent_time) < self._min_send_period:
             return
 
-        logger.info(f"[Arduino] Send A={ab[0]} B={ab[1]}")
+        logger.info(f"[Arduino] -- Send A={ab[0]} B={ab[1]}")
         self.bridge.send_ab(ab[0], ab[1])
 
         self._last_sent = ab

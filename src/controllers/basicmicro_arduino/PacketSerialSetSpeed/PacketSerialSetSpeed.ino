@@ -1,3 +1,4 @@
+#define SERIAL_RX_BUFFER_SIZE 256
 #include <Arduino.h>
 #include <Basicmicro.h>
 #include <SoftwareSerial.h>
@@ -9,6 +10,11 @@ static const uint32_t TIMEOUT_US = 10000;
 
 static const uint8_t ADDR_A = 128;
 static const uint8_t ADDR_B = 128;
+
+// Fresh-command watchdog:
+// if no valid A=... B=... line arrives within this many ms,
+// force commanded speeds back to zero.
+static const uint32_t CMD_STALE_MS = 5000;
 
 // Controller A: TX=11, RX=10
 static const uint8_t RX_A = 10, TX_A = 11;
@@ -22,39 +28,46 @@ Basicmicro ctrlB(&serialB, TIMEOUT_US);
 
 static int32_t speedA = 0, speedB = 0;
 static int32_t lastA = INT32_MIN, lastB = INT32_MIN;
+static uint32_t lastValidCmdMs = 0;
 
-void sendSpeedToController(Basicmicro &ctrl, SoftwareSerial &ss, uint8_t addr, int32_t speed) {
-  ss.listen();
-  ctrl.SpeedM1(addr, (uint32_t)speed);
-  delay(5);
-  ss.listen();
-  ctrl.SpeedM2(addr, (uint32_t)speed);
+bool sendSpeedToController(Basicmicro &ctrl, SoftwareSerial &ss, uint8_t addr, int32_t speed) {
+  for (int attempt = 0; attempt < 3; attempt++) {
+    ss.listen();
+    if (!ctrl.SpeedM1(addr, speed)) {
+      Serial.print("WARN SpeedM1 failed addr="); Serial.print(addr);
+      Serial.print(" speed="); Serial.print(speed);
+      Serial.print(" attempt="); Serial.println(attempt);
+      delay(5);
+      continue;
+    }
+    delay(5);
+    ss.listen();
+    if (!ctrl.SpeedM2(addr, speed)) {
+      Serial.print("WARN SpeedM2 failed addr="); Serial.print(addr);
+      Serial.print(" speed="); Serial.print(speed);
+      Serial.print(" attempt="); Serial.println(attempt);
+      delay(5);
+      continue;
+    }
+    return true;
+  }
+  Serial.print("ERROR send failed addr="); Serial.print(addr);
+  Serial.print(" speed="); Serial.println(speed);
+  return false;
 }
 
-// Parse line like: "A=-300 B=200"
 bool parseLineAB(const char *line, int32_t &outA, int32_t &outB) {
-  // defaults: keep last if missing
-  bool gotA = false, gotB = false;
-
-  const char *p = line;
-  while (*p) {
-    while (*p == ' ') p++;
-
-    if ((p[0] == 'A' || p[0] == 'a') && p[1] == '=') {
-      p += 2;
-      outA = (int32_t)strtol(p, (char**)&p, 10);
-      gotA = true;
-    } else if ((p[0] == 'B' || p[0] == 'b') && p[1] == '=') {
-      p += 2;
-      outB = (int32_t)strtol(p, (char**)&p, 10);
-      gotB = true;
-    } else {
-      // skip token
-      while (*p && *p != ' ') p++;
-    }
+  long a, b;
+  char extra;
+  if (sscanf(line, "A=%ld B=%ld %c", &a, &b, &extra) == 2) {
+    outA = (int32_t)a;
+    outB = (int32_t)b;
+    return true;
   }
-
-  return gotA || gotB;
+  else {
+    Serial.print("WARN unparseable line: '"); Serial.print(line); Serial.println("'");
+  }
+  return false;
 }
 
 // Read one full line from Serial
@@ -91,31 +104,51 @@ void setup() {
   delay(10);
   sendSpeedToController(ctrlB, serialB, ADDR_B, 0);
 
-  Serial.println("Ready. Send: A=<int> B=<int>");
+  lastValidCmdMs = millis();
+
+  Serial.println("Ready v6. Send: A=<int> B=<int>");
 }
 
 void loop() {
+  // Drain ALL pending lines and keep only the latest valid one.
   char line[64];
-  if (readLine(line, sizeof(line))) {
-    int32_t newA = speedA, newB = speedB;
-    if (parseLineAB(line, newA, newB)) {
-      speedA = newA;
-      speedB = newB;
+  int32_t newA = speedA, newB = speedB;
+  bool got = false;
 
-      Serial.print("Parsed A="); Serial.print(speedA);
-      Serial.print(" B="); Serial.println(speedB);
+  while (readLine(line, sizeof(line))) {
+    if (parseLineAB(line, newA, newB)) {
+      got = true;
     }
   }
 
-  // Only send when changed
+  if (got) {
+    speedA = newA;
+    speedB = newB;
+    lastValidCmdMs = millis();
+
+    Serial.print("Parsed A="); Serial.print(speedA);
+    Serial.print(" B="); Serial.println(speedB);
+  }
+
+  // Fresh-command watchdog:
+  // if command stream goes stale, force zero velocities.
+  if ((uint32_t)(millis() - lastValidCmdMs) > CMD_STALE_MS) {
+    speedA = 0;
+    speedB = 0;
+  }
+
+  // Only send when changed; only update last if send succeeded
+  // (so failed sends are retried).
   if (speedA != lastA) {
-    sendSpeedToController(ctrlA, serialA, ADDR_A, speedA);
-    lastA = speedA;
+    if (sendSpeedToController(ctrlA, serialA, ADDR_A, speedA)) {
+      lastA = speedA;
+    }
   }
   if (speedB != lastB) {
     delay(15); // spacing helps SoftwareSerial
-    sendSpeedToController(ctrlB, serialB, ADDR_B, speedB);
-    lastB = speedB;
+    if (sendSpeedToController(ctrlB, serialB, ADDR_B, speedB)) {
+      lastB = speedB;
+    }
   }
 
   delay(2);
