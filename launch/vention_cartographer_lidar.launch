@@ -12,7 +12,7 @@
     <remap from="scan_2"   to="/lidar_l/scan"/>
     <remap from="scan_1" to="/lidar_r/scan"/>
     <!-- Odometry: cartographer expects nav_msgs/Odometry on "odom" -->
-    <remap from="odom" to="/rtabmap/odom"/>
+    <remap from="odom" to="/odometry/filtered"/>
     <!-- If you publish odom as a topic instead of TF, cartographer can also subscribe,
          but in ROS1 it commonly uses TF odom->base_link. -->
   </node>

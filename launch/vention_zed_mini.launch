@@ -1,0 +1,92 @@
+<launch>
+  <!-- ===================== -->
+  <!-- Args -->
+  <!-- ===================== -->
+  <arg name="base_link_frame" default="vention_base_link"/>
+  <arg name="odom_frame"      default="odom"/>
+  <arg name="map_frame"       default="map"/>
+  <arg name="camera_name"     default="zed_mini"/>
+
+  <!-- ===================== -->
+  <!-- ZED Mini VIO -->
+  <!-- The ZED wrapper fuses camera + IMU internally and publishes:
+         /<camera_name>/zed_node/odom  (nav_msgs/Odometry, VIO output)
+       TF publishing is disabled on both axes so this node does not
+       compete with the UKF (odom->base_link) or Cartographer (map->odom).
+       All image/depth/point-cloud topics are published but have no
+       subscribers in this stack, so they are harmless. -->
+  <!-- ===================== -->
+  <include file="$(find zed_wrapper)/launch/zedm.launch">
+    <arg name="camera_name"    value="$(arg camera_name)"/>
+    <arg name="camera_model"   value="zedm"/>
+    <arg name="base_frame"     value="$(arg base_link_frame)"/>
+  </include>
+  <!-- Disable TF: UKF owns odom->base_link, Cartographer owns map->odom.
+       ZED wrapper nests these under pos_tracking/ in its YAML config. -->
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/publish_tf"     value="false"/>
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/publish_map_tf" value="false"/>
+
+  <!-- Static TF: vention_base_link -> zed_mini_camera_center
+       Required so the ZED wrapper can express VIO in the base frame.
+       Values below match the old RealSense mount (x=0.3176m forward,
+       z=0.386m up). Update to reflect the actual ZED Mini installation. -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="zed_mini_base_tf"
+        args="0.3176 0.0 0.386 0.0 0.0 0.0
+              $(arg base_link_frame) $(arg camera_name)_camera_center"/>
+
+  <!-- ===================== -->
+  <!-- robot_localization UKF -->
+  <!-- ===================== -->
+  <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+
+  <param name="/ukf_se/frequency"      value="50"/>
+  <param name="/ukf_se/sensor_timeout" value="0.1"/>
+  <param name="/ukf_se/two_d_mode"     value="true"/>
+
+  <param name="/ukf_se/map_frame"       value="$(arg map_frame)"/>
+  <param name="/ukf_se/odom_frame"      value="$(arg odom_frame)"/>
+  <param name="/ukf_se/base_link_frame" value="$(arg base_link_frame)"/>
+  <param name="/ukf_se/world_frame"     value="$(arg odom_frame)"/>
+
+  <param name="/ukf_se/publish_tf"  value="true"/>
+  <param name="/ukf_se/use_control" value="false"/>
+
+  <!-- odom0: ZED Mini VIO — fuse twist only (X/Y linear velocity + yaw-rate).
+       VIO absolute pose drifts monotonically; fusing it drags the UKF along,
+       causing apparent motion when stationary. Using velocity-only lets the
+       UKF integrate drift-aware odometry itself.
+       No separate imu0: ZED already fuses its IMU internally; adding it again
+       would double-count the same sensor and degrade filter performance. -->
+  <param name="/ukf_se/odom0" value="/$(arg camera_name)/zed_node/odom"/>
+  <rosparam param="/ukf_se/odom0_config">
+    [false, false, false,
+     false, false, false,
+     true,  true,  false,
+     false, false, true,
+     false, false, false]
+  </rosparam>
+
+  <param name="/ukf_se/odom0_pose_rejection_threshold"  value="1000"/>
+  <param name="/ukf_se/odom0_twist_rejection_threshold" value="1000"/>
+
+  <!-- Explicit initial state covariance. Template's default is 1e9 on diagonals;
+       with twist-only input, position/yaw are unobservable and huge initial
+       covariance combined with bad startup twist from ZED → NaN state. -->
+  <rosparam param="/ukf_se/initial_estimate_covariance">
+    [1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3]
+  </rosparam>
+</launch>

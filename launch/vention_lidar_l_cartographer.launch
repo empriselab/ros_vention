@@ -10,10 +10,7 @@
     <remap from="scan" to="/lidar_l/scan"/>
 
     <!-- Odometry: cartographer expects nav_msgs/Odometry on "odom" -->
-    <remap from="odom" to="/rtabmap/odom"/>
-    <!-- alternatively:
     <remap from="odom" to="/odometry/filtered"/>
-    -->
   </node>
 
   <node pkg="cartographer_ros" type="cartographer_occupancy_grid_node" name="occupancy_grid_node" output="screen">
