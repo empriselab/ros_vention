@@ -8,11 +8,10 @@
   <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node" output="screen"
         args="-configuration_directory $(arg config_dir)
               -configuration_basename $(arg config_basename)">
-    <!-- For num_laser_scans=2, cartographer expects topics: scan and scan_1 -->
     <remap from="scan_2"   to="/lidar_l/scan"/>
     <remap from="scan_1" to="/lidar_r/scan"/>
     <!-- Odometry: cartographer expects nav_msgs/Odometry on "odom" -->
-    <remap from="odom" to="/odometry/filtered"/>
+    <remap from="odom" to="/zed_mini/zed_node/odom"/>
     <!-- If you publish odom as a topic instead of TF, cartographer can also subscribe,
          but in ROS1 it commonly uses TF odom->base_link. -->
   </node>

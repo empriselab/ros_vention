@@ -49,4 +49,13 @@
     <origin xyz="0.3176 0.0 0.386" rpy="0.0 0.0 0.0"/>
   </joint>
 
+  <link name="zed_mini_base_link"/>
+
+  <joint name="zed_base_link_to_vention_base_link" type="fixed">
+    <parent link="zed_mini_base_link"/>
+    <child link="vention_base_link"/>
+    <origin xyz="-0.3176 0.0 -0.386" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+
 </robot>

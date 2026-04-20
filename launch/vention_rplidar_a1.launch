@@ -23,17 +23,6 @@
   <arg name="lidar_l_rp"  default="0.0"/>      <!-- pitch -->
   <arg name="lidar_l_ry"  default="0.0"/>      <!-- yaw   -->
 
-  <!-- ===== Merge node params ===== -->
-  <arg name="merged_scan_topic" default="/scan_merged"/>
-  <arg name="scan_topic_1" default="/lidar_l/scan"/>
-  <arg name="scan_topic_2" default="/lidar_r/scan"/>
-  <arg name="target_frame" default="$(arg base_frame)"/>
-  <arg name="angle_min" default="-3.14159265359"/>
-  <arg name="angle_max" default="3.14159265359"/>
-  <arg name="angle_increment" default="0.01745329252"/> <!-- 1 deg -->
-  <arg name="sync_slop" default="0.05"/>
-  <arg name="sync_queue" default="20"/>
-
   <!-- Static TFs: base -> lidar frames -->
   <node pkg="tf2_ros" type="static_transform_publisher" name="tf_base_to_lidar_r"
         args="$(arg lidar_r_x) $(arg lidar_r_y) $(arg lidar_r_z) $(arg lidar_r_rr) $(arg lidar_r_rp) $(arg lidar_r_ry) $(arg base_frame) lidar_r"/>

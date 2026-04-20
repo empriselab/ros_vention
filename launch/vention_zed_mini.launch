@@ -35,58 +35,73 @@
               $(arg base_link_frame) $(arg camera_name)_camera_center"/>
 
   <!-- ===================== -->
-  <!-- robot_localization UKF -->
+  <!-- robot_localization EKF -->
+  <!-- Switched from UKF: with only x/y/yaw observed and 9 unobserved
+       velocity/accel states accumulating process noise, the UKF's
+       sigma-point Cholesky step went singular after ~30s of operation
+       and cascaded NaN. EKF uses a standard covariance update that
+       tolerates partially-observed states. -->
   <!-- ===================== -->
-  <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+  <include file="$(find robot_localization)/launch/ekf_template.launch"/>
 
-  <param name="/ukf_se/frequency"      value="50"/>
-  <param name="/ukf_se/sensor_timeout" value="0.1"/>
-  <param name="/ukf_se/two_d_mode"     value="true"/>
+  <param name="/ekf_se/frequency"      value="50"/>
+  <param name="/ekf_se/sensor_timeout" value="0.1"/>
+  <param name="/ekf_se/two_d_mode"     value="true"/>
 
-  <param name="/ukf_se/map_frame"       value="$(arg map_frame)"/>
-  <param name="/ukf_se/odom_frame"      value="$(arg odom_frame)"/>
-  <param name="/ukf_se/base_link_frame" value="$(arg base_link_frame)"/>
-  <param name="/ukf_se/world_frame"     value="$(arg odom_frame)"/>
+  <param name="/ekf_se/map_frame"       value="$(arg map_frame)"/>
+  <param name="/ekf_se/odom_frame"      value="$(arg odom_frame)"/>
+  <param name="/ekf_se/base_link_frame" value="$(arg base_link_frame)"/>
+  <param name="/ekf_se/world_frame"     value="$(arg odom_frame)"/>
 
-  <param name="/ukf_se/publish_tf"  value="true"/>
-  <param name="/ukf_se/use_control" value="false"/>
+  <param name="/ekf_se/publish_tf"  value="true"/>
+  <param name="/ekf_se/use_control" value="false"/>
 
-  <!-- odom0: ZED Mini VIO — fuse twist only (X/Y linear velocity + yaw-rate).
-       VIO absolute pose drifts monotonically; fusing it drags the UKF along,
-       causing apparent motion when stationary. Using velocity-only lets the
-       UKF integrate drift-aware odometry itself.
-       No separate imu0: ZED already fuses its IMU internally; adding it again
-       would double-count the same sensor and degrade filter performance. -->
-  <param name="/ukf_se/odom0" value="/$(arg camera_name)/zed_node/odom"/>
-  <rosparam param="/ukf_se/odom0_config">
-    [false, false, false,
-     false, false, false,
-     true,  true,  false,
+  <!-- odom0: ZED Mini VIO — fuse pose in DIFFERENTIAL mode.
+  The ZED wrapper publishes twist as zeros with zero covariance, which causes 
+  singular Kalman gain -> NaN if fused directly. The pose fields are populated 
+  correctly with valid covariance, so we fuse those. 
+  odom0_differential=true makes r_l internally difference consecutive
+  pose messages - this recovers twist-like behavior without dragging the UKF
+  along with ZED's drifting absolute pose.
+  No separate imu0: ZED already fuses its IMU internally; adding it again
+  would double-count the same sensor. -->
+  <param name="/ekf_se/odom0" value="/$(arg camera_name)/zed_node/odom"/>
+  <rosparam param="/ekf_se/odom0_config">
+    [true,  true,  false,
      false, false, true,
+     false,  false,  false,
+     false, false, false,
      false, false, false]
   </rosparam>
 
-  <param name="/ukf_se/odom0_pose_rejection_threshold"  value="1000"/>
-  <param name="/ukf_se/odom0_twist_rejection_threshold" value="1000"/>
+  <param name="/ekf_se/odom0_differential" value="true"/>
+  <param name="/ekf_se/odom0_relative" value="false"/>
+  <param name="/ekf_se/odom0_nodelay" value="true"/>
+  <param name="/ekf_se/odom0_queue_size" value="10"/>
 
-  <!-- Explicit initial state covariance. Template's default is 1e9 on diagonals;
-       with twist-only input, position/yaw are unobservable and huge initial
-       covariance combined with bad startup twist from ZED → NaN state. -->
-  <rosparam param="/ukf_se/initial_estimate_covariance">
-    [1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,    0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3, 0,
-     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-3]
+  <param name="/ekf_se/odom0_pose_rejection_threshold"  value="1000"/>
+  <param name="/ekf_se/odom0_twist_rejection_threshold" value="1000"/>
+
+  <!-- Explicit initial state covariance. Template default (1e9 on all diagonals)
+       combined with a ~1e-4 measurement variance on the first differential
+       update saturates the Kalman gain across 12 unobserved states and
+       ill-conditions the covariance matrix -> NaN. Pose/orientation start at
+       origin (1e-9, honest), velocity/accel are unknown (1.0, honest). -->
+  <rosparam param="/ekf_se/initial_estimate_covariance">
+    [1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,    0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0,  0,
+     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1.0]
   </rosparam>
 </launch>

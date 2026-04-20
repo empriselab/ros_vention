@@ -1,0 +1,38 @@
+<launch>
+  <!-- ===================== -->
+  <!-- Args -->
+  <!-- ===================== -->
+  <arg name="odom_frame"        default="odom"/>
+  <arg name="map_frame"         default="map"/>
+  <arg name="camera_name"       default="zed_mini"/>
+  <arg name="camera_base_frame" default="zed_mini_base_link"/>
+
+  <!-- ===================== -->
+  <!-- ZED Mini VIO -->
+  <!-- Wrapper fuses camera + IMU internally and publishes
+         odom -> zed_mini_base_link directly as TF.
+       The URDF parents zed_mini_base_link under vention_base_link
+       (joint: vention_base_link_to_zed_base_link), so TF resolves the
+       full chain odom -> zed_mini_base_link -> vention_base_link with
+       no extra publishers in this launch.
+       NOTE: this makes the TF tree effectively rooted at odom, with
+       vention_base_link as a child of zed_mini_base_link via URDF
+       inverse. Works for a single-sensor setup; revisit (add r_l as a
+       frame adapter) if you ever add a second odometry source.
+       map -> odom TF is suppressed so Cartographer can own that edge. -->
+  <!-- ===================== -->
+  <include file="$(find zed_wrapper)/launch/zedm.launch">
+    <arg name="camera_name"  value="$(arg camera_name)"/>
+    <arg name="camera_model" value="zedm"/>
+  </include>
+
+  <!-- TF ownership: ZED owns odom -> zed_mini_base_link,
+       URDF owns vention_base_link <-> zed_mini_base_link,
+       Cartographer owns map -> odom. -->
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/publish_tf"     value="true"/>
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/publish_map_tf" value="false"/>
+
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/odometry_frame" value="$(arg odom_frame)"/>
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/map_frame"      value="$(arg map_frame)"/>
+  <param name="/$(arg camera_name)/zed_node/pos_tracking/base_frame"     value="$(arg camera_base_frame)"/>
+</launch>
