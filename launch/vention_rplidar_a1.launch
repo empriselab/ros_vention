@@ -1,7 +1,7 @@
 <launch>
   <!-- Stable: tied to physical USB port -->
-  <arg name="port2" default="/dev/serial/by-path/pci-0000:00:14.0-usb-0:4.1:1.0-port0"/>
-  <arg name="port1" default="/dev/serial/by-path/pci-0000:00:14.0-usb-0:4.2:1.0-port0"/>
+  <arg name="port2" default="/dev/serial/by-path/pci-0000:00:14.0-usb-0:8.1:1.0-port0"/>
+  <arg name="port1" default="/dev/serial/by-path/pci-0000:00:14.0-usb-0:8.2:1.0-port0"/>
   <arg name="baud"  default="115200"/>
 
   <!-- Robot root frame -->

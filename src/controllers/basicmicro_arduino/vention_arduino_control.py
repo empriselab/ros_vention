@@ -149,6 +149,9 @@ class ArduinoSerialBridge:
     def _write_line(self, payload: bytes):
         if self.ser is None:
             raise RuntimeError("Arduino serial not connected")
+        # Drop pending Arduino USB-serial prints to prevent host-side buffer buildup.
+        if self.ser.in_waiting:
+            self.ser.reset_input_buffer()
         self.ser.write(payload)
         self.ser.flush()
 
@@ -216,6 +219,7 @@ class VentionBase:
         self._last_sent = None
         self._last_sent_time = 0.0
         self._min_send_period = 1.0 / 20.0  # 20 Hz
+        self._min_same_send_period = 1.0 / 1.0 # 1 Hz
         # Start stopped
         self._send_setpoints()
 
@@ -224,14 +228,14 @@ class VentionBase:
         ab = (self._setpoints.a, self._setpoints.b)
 
         # only send if changed
-        if self._last_sent == ab:
+        if self._last_sent == ab and (now - self._last_sent_time) < self._min_same_send_period:
             return
 
         # rate limit
         if (now - self._last_sent_time) < self._min_send_period:
             return
 
-        logger.info(f"[Arduino] -- Send A={ab[0]} B={ab[1]}")
+        logger.debug(f"[Arduino] -- Send A={ab[0]} B={ab[1]}")
         self.bridge.send_ab(ab[0], ab[1])
 
         self._last_sent = ab
