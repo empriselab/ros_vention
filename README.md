@@ -29,7 +29,7 @@ catkin build
 
 # Teleoperation with Xbox
 ```
-ros_vention/src/controllers/vention_joystick_control_v2.py
+python src/ros_vention/src/controllers/basicmicro_arduino/vention_controller.py
 ```
 
 # Navigation 
@@ -45,21 +45,39 @@ You may need to change the usb id/path of lidars in the launch file.
 roslaunch ros_vention vention_rplidar_a1.launch
 ```
 
-## Start Realsense
-We are using the Realsense built-in IMU. If we have a true IMU, we don't need this.
+## Start ZED Camera
+We are using the ZED built-in VIO.
 We use the IMU for odom -> vention_base_link.
 ```
-roslaunch ros_vention vention_odm_d435.launch
+roslaunch ros_vention vention_zed_pose.launch
 ```
 
 ## Start Cartographer For SLAM
 
 We use cartographer for map -> odom
+
+For building map:
 ```
 roslaunch ros_vention vention_cartographer_lidar.launch
 ```
+Save map using 
+```
+python src/ros_vention/scripts/build_map_interactive.py --pbstream-file /home/isacc/deployment_ws/src/ros_vention/maps/emprise_572_map.pbstream
+```
+
+For using against existing map:
+```
+python src/ros_vention/scripts/build_map_interactive.py --pbstream-file /home/isacc/deployment_ws/src/ros_vention/maps/emprise_572_map.pbstream
+```
 
 ## Start move_base For Navigation
+
+First make sure we are publishing the odom link required:
+
+```
+python src/ros_vention/scripts/zed_pose_to_odom_feedback.py
+```
+
 You may need to change the Arduino usb id cmd_vel_bridge_basicmicro.py.
 ```
 roslaunch ros_vention vention_navigation.launch
@@ -70,3 +88,18 @@ roslaunch ros_vention vention_navigation.launch
 Open RViz and use the config in rviz/vention.rviz
 
 You can move the base by giving it a 2D nav goal in RViz.
+
+## Capture Named Locations
+
+```
+python src/ros_vention/scripts/capture_named_locations.py --locations microwave --locations-file /home/isacc/deployment_ws/src/feeding-deployment/config/nav_named_locations.yaml
+```
+
+## [Feeding-Deployment] Test Navigation
+
+Check that you are in feed conda env
+```
+python /home/isacc/deployment_ws/src/feeding-deployment/src/feeding_deployment/integration/test_navigate_action.py
+```
+
+
