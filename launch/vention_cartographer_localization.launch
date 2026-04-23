@@ -1,0 +1,24 @@
+<launch>
+  <!-- Localization against a prebuilt Cartographer state (.pbstream). -->
+  <arg name="config_dir" default="$(find ros_vention)/config"/>
+  <arg name="config_basename" default="vention_2lidar_localization.lua"/>
+  <arg name="load_state_filename" default="/tmp/vention_map.pbstream"/>
+  <arg name="load_frozen_state" default="true"/>
+
+  <!-- Cartographer node in localization mode. -->
+  <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node" output="screen"
+        args="-configuration_directory $(arg config_dir)
+              -configuration_basename $(arg config_basename)
+              -load_state_filename $(arg load_state_filename)
+              -load_frozen_state $(arg load_frozen_state)">
+    <remap from="scan_2" to="/lidar_l/scan"/>
+    <remap from="scan_1" to="/lidar_r/scan"/>
+    <remap from="odom" to="/zed_mini/zed_node/odom"/>
+  </node>
+
+  <!-- Publish occupancy grid as /map. -->
+  <node pkg="cartographer_ros" type="cartographer_occupancy_grid_node" name="occupancy_grid_node" output="screen">
+    <param name="resolution" value="0.05"/>
+    <param name="publish_period_sec" value="1.0"/>
+  </node>
+</launch>

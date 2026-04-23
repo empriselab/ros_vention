@@ -41,7 +41,9 @@ TRAJECTORY_BUILDER_2D.max_range = 12.0
 TRAJECTORY_BUILDER_2D.missing_data_ray_length = 12.0
 
 -- Localization-only mode against a loaded pbstream map.
-TRAJECTORY_BUILDER_2D.pure_localization = true
+TRAJECTORY_BUILDER.pure_localization_trimmer = {
+  max_submaps_to_keep = 3,
+}
 
 TRAJECTORY_BUILDER_2D.motion_filter.max_time_seconds = 0.5
 TRAJECTORY_BUILDER_2D.motion_filter.max_distance_meters = 0.05
