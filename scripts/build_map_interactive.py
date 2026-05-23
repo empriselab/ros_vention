@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from collections import deque
 from dataclasses import dataclass
 import importlib
 from pathlib import Path
 import subprocess
+import threading
 import time
 from typing import Any
 
@@ -39,7 +39,7 @@ class MapStats:
 
 
 class InteractiveMapBuilder:
-    """Wait for a sufficiently built map and save Cartographer state."""
+    """Report map metrics until the user requests saving Cartographer state."""
 
     def __init__(
         self,
@@ -52,9 +52,6 @@ class InteractiveMapBuilder:
         write_state_service: str,
         trajectory_id: int,
         sample_period_s: float,
-        min_known_cells: int,
-        saturation_window: int,
-        max_known_growth_per_sample: int,
     ) -> None:
         self._map_topic = map_topic
         self._pbstream_file = pbstream_file
@@ -65,9 +62,6 @@ class InteractiveMapBuilder:
         self._write_state_service = write_state_service
         self._trajectory_id = trajectory_id
         self._sample_period_s = sample_period_s
-        self._min_known_cells = min_known_cells
-        self._saturation_window = saturation_window
-        self._max_known_growth_per_sample = max_known_growth_per_sample
         self._latest_map: OccupancyGrid | None = None
 
     def _map_cb(self, msg: OccupancyGrid) -> None:
@@ -90,18 +84,13 @@ class InteractiveMapBuilder:
             occupied_cells=occupied,
         )
 
-    def _is_sufficient(self, known_history: deque[int], current_known: int) -> bool:
-        if current_known < self._min_known_cells:
-            return False
-        if len(known_history) < self._saturation_window:
-            return False
-
-        growth = [
-            known_history[i] - known_history[i - 1]
-            for i in range(1, len(known_history))
-        ]
-        avg_growth = sum(abs(g) for g in growth) / len(growth)
-        return avg_growth <= self._max_known_growth_per_sample
+    def _wait_for_enter(self, save_requested: threading.Event) -> None:
+        try:
+            input("Press Enter at any time to save Cartographer state and exit...\n")
+        except EOFError:
+            # If stdin is unavailable, fall back to immediate save.
+            pass
+        save_requested.set()
 
     def run(self) -> None:
         if not ROSPY_IMPORTED:
@@ -116,20 +105,30 @@ class InteractiveMapBuilder:
         rospy.wait_for_message(self._map_topic, OccupancyGrid, timeout=30.0)
         print("Map topic is active.")
 
-        input(
-            "Press Enter to start mapping. Teleoperate the base to explore the space. "
-            "The script will notify you when the map appears sufficiently built..."
+        print(
+            "Teleoperate the base to explore the space while metrics are reported."
         )
 
-        known_history: deque[int] = deque(maxlen=self._saturation_window)
-        while not rospy.is_shutdown():
+        save_requested = threading.Event()
+        enter_thread = threading.Thread(
+            target=self._wait_for_enter,
+            args=(save_requested,),
+            daemon=True,
+        )
+        enter_thread.start()
+
+        waiting_for_map_data_reported = False
+        while not rospy.is_shutdown() and not save_requested.is_set():
             msg = self._latest_map
             if msg is None:
-                time.sleep(self._sample_period_s)
+                if not waiting_for_map_data_reported:
+                    print("Waiting for map data to compute metrics...")
+                    waiting_for_map_data_reported = True
+                save_requested.wait(timeout=self._sample_period_s)
                 continue
 
+            waiting_for_map_data_reported = False
             stats = self._stats_from_msg(msg)
-            known_history.append(stats.known_cells)
             print(
                 "Map progress | "
                 f"size={stats.width}x{stats.height}, "
@@ -137,14 +136,13 @@ class InteractiveMapBuilder:
                 f"({100.0 * stats.known_ratio:.1f}%), "
                 f"free={stats.free_cells}, occupied={stats.occupied_cells}"
             )
+            save_requested.wait(timeout=self._sample_period_s)
 
-            if self._is_sufficient(known_history, stats.known_cells):
-                print("Map appears sufficiently built (coverage has saturated).")
-                break
+        if rospy.is_shutdown() and not save_requested.is_set():
+            print("ROS shutdown detected before save request. Exiting without saving.")
+            return
 
-            time.sleep(self._sample_period_s)
-
-        input("Press Enter to save Cartographer state now...")
+        print("Save requested. Writing Cartographer state...")
         self._save_cartographer_state()
         if self._save_occupancy_snapshot:
             self._save_occupancy_map_snapshot()
@@ -249,10 +247,7 @@ def _main() -> None:
     parser.add_argument("--finish-trajectory-service", type=str, default="/finish_trajectory")
     parser.add_argument("--write-state-service", type=str, default="/write_state")
     parser.add_argument("--trajectory-id", type=int, default=0)
-    parser.add_argument("--sample-period-s", type=float, default=2.0)
-    parser.add_argument("--min-known-cells", type=int, default=10000)
-    parser.add_argument("--saturation-window", type=int, default=8)
-    parser.add_argument("--max-known-growth-per-sample", type=int, default=250)
+    parser.add_argument("--sample-period-s", type=float, default=1.0)
     args = parser.parse_args()
 
     print("Interactive Map Builder")
@@ -266,9 +261,6 @@ def _main() -> None:
         write_state_service=args.write_state_service,
         trajectory_id=args.trajectory_id,
         sample_period_s=args.sample_period_s,
-        min_known_cells=args.min_known_cells,
-        saturation_window=args.saturation_window,
-        max_known_growth_per_sample=args.max_known_growth_per_sample,
     )
     print(
         f"Map topic: {args.map_topic}\n"
@@ -279,10 +271,7 @@ def _main() -> None:
         f"finish_trajectory service: {args.finish_trajectory_service}\n"
         f"write_state service: {args.write_state_service}\n"
         f"Trajectory ID: {args.trajectory_id}\n"
-        f"Sample period (s): {args.sample_period_s}\n"
-        f"Minimum known cells: {args.min_known_cells}\n"
-        f"Saturation window (samples): {args.saturation_window}\n"
-        f"Max known growth per sample: {args.max_known_growth_per_sample}"
+        f"Sample period (s): {args.sample_period_s}"
     )
     builder.run()
 

@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Map1/Status1
         - /TF1
         - /TF1/Frames1
       Splitter Ratio: 0.6586059927940369
@@ -72,21 +71,145 @@ Visualization Manager:
       Frames:
         All Enabled: false
         base_link:
-          Value: true
+          Value: false
+        bracelet_link:
+          Value: false
+        camera_aligned_depth_to_color_frame:
+          Value: false
+        camera_color_frame:
+          Value: false
+        camera_color_optical_frame:
+          Value: false
+        camera_depth_frame:
+          Value: false
+        camera_depth_optical_frame:
+          Value: false
+        camera_link:
+          Value: false
+        drink_tip:
+          Value: false
+        drinkbase:
+          Value: false
         dummy_frame:
           Value: false
+        end_effector_link:
+          Value: false
+        feeding_tool_tip:
+          Value: false
+        finger_tip:
+          Value: false
+        fork_tip:
+          Value: false
+        forkbase:
+          Value: false
+        forkroll:
+          Value: false
+        inertia_link:
+          Value: false
+        left_inner_finger:
+          Value: false
+        left_inner_finger_pad:
+          Value: false
+        left_outer_finger:
+          Value: false
+        left_outer_knuckle:
+          Value: false
         lidar_l:
-          Value: true
+          Value: false
         lidar_r:
-          Value: true
+          Value: false
         map:
           Value: true
         odom:
           Value: true
+        right_inner_finger:
+          Value: false
+        right_inner_finger_pad:
+          Value: false
+        right_outer_finger:
+          Value: false
+        right_outer_knuckle:
+          Value: false
+        robotiq_arg2f_base_link:
+          Value: false
+        sim/base_link:
+          Value: false
+        sim/bracelet_link:
+          Value: false
+        sim/drink_tip:
+          Value: false
+        sim/drinkbase:
+          Value: false
+        sim/end_effector_link:
+          Value: false
+        sim/feeding_tool_tip:
+          Value: false
+        sim/finger_tip:
+          Value: false
+        sim/forearm_link:
+          Value: false
+        sim/fork_tip:
+          Value: false
+        sim/forkbase:
+          Value: false
+        sim/forkpitch:
+          Value: false
+        sim/forkroll:
+          Value: false
+        sim/half_arm_1_link:
+          Value: false
+        sim/half_arm_2_link:
+          Value: false
+        sim/inertia_link:
+          Value: false
+        sim/left_inner_finger:
+          Value: false
+        sim/left_inner_finger_pad:
+          Value: false
+        sim/left_inner_knuckle:
+          Value: false
+        sim/left_outer_finger:
+          Value: false
+        sim/left_outer_knuckle:
+          Value: false
+        sim/right_inner_finger:
+          Value: false
+        sim/right_inner_finger_pad:
+          Value: false
+        sim/right_inner_knuckle:
+          Value: false
+        sim/right_outer_finger:
+          Value: false
+        sim/right_outer_knuckle:
+          Value: false
+        sim/robotiq_arg2f_base_link:
+          Value: false
+        sim/shoulder_link:
+          Value: false
+        sim/spherical_wrist_1_link:
+          Value: false
+        sim/spherical_wrist_2_link:
+          Value: false
+        sim/tool_frame:
+          Value: false
+        sim/wipe_tip:
+          Value: false
+        sim/wipebase:
+          Value: false
+        sim/world:
+          Value: false
+        tool_frame:
+          Value: false
         vention_base_cam_1_link:
           Value: false
         vention_base_link:
-          Value: true
+          Value: false
+        wipe_tip:
+          Value: false
+        wipebase:
+          Value: false
+        world:
+          Value: false
         zed_mini_base_link:
           Value: true
         zed_mini_camera_center:
@@ -108,6 +231,42 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
+        bracelet_link:
+          end_effector_link:
+            camera_link:
+              camera_aligned_depth_to_color_frame:
+                camera_color_optical_frame:
+                  {}
+              camera_color_frame:
+                {}
+              camera_depth_frame:
+                camera_depth_optical_frame:
+                  {}
+            finger_tip:
+              drinkbase:
+                drink_tip:
+                  {}
+              forkbase:
+                {}
+              wipebase:
+                wipe_tip:
+                  {}
+            inertia_link:
+              {}
+            robotiq_arg2f_base_link:
+              {}
+            tool_frame:
+              {}
+        forkroll:
+          feeding_tool_tip:
+            fork_tip:
+              {}
+        left_inner_finger:
+          left_inner_finger_pad:
+            {}
+        left_outer_knuckle:
+          left_outer_finger:
+            {}
         map:
           odom:
             base_link:
@@ -130,6 +289,57 @@ Visualization Manager:
                   zed_mini_right_camera_frame:
                     zed_mini_right_camera_optical_frame:
                       {}
+          sim/world:
+            sim/base_link:
+              sim/shoulder_link:
+                sim/half_arm_1_link:
+                  sim/half_arm_2_link:
+                    sim/forearm_link:
+                      sim/spherical_wrist_1_link:
+                        sim/spherical_wrist_2_link:
+                          sim/bracelet_link:
+                            sim/end_effector_link:
+                              sim/finger_tip:
+                                {}
+                              sim/inertia_link:
+                                {}
+                              sim/robotiq_arg2f_base_link:
+                                sim/left_inner_knuckle:
+                                  {}
+                                sim/left_outer_knuckle:
+                                  sim/left_outer_finger:
+                                    sim/left_inner_finger:
+                                      sim/left_inner_finger_pad:
+                                        {}
+                                sim/right_inner_knuckle:
+                                  {}
+                                sim/right_outer_knuckle:
+                                  sim/right_outer_finger:
+                                    sim/right_inner_finger:
+                                      sim/right_inner_finger_pad:
+                                        {}
+                              sim/tool_frame:
+                                {}
+          world:
+            {}
+        right_inner_finger:
+          right_inner_finger_pad:
+            {}
+        right_outer_knuckle:
+          right_outer_finger:
+            {}
+        sim/drinkbase:
+          sim/drink_tip:
+            {}
+        sim/forkbase:
+          sim/forkpitch:
+            sim/forkroll:
+              sim/feeding_tool_tip:
+                sim/fork_tip:
+                  {}
+        sim/wipebase:
+          sim/wipe_tip:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -532,7 +742,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.7807435989379883
+      Distance: 11.345039367675781
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -564,7 +774,7 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000002c100000564fc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b000000b000fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000006e000003c20000018200fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065010000043c000001960000002600fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670000000309000002c9000002b800fffffffb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000007a00ffffff000000010000015f00000564fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000006e000005640000013200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000083d0000005efc0100000002fb0000000800540069006d006501000000000000083d000006dc00fffffffb0000000800540069006d00650100000000000004500000000000000000000005700000056400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000002c100000564fc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b000000b000fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000006e000003c20000018200fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065010000043c000001960000002600fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670000000309000002c9000002b800fffffffb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000002600000026000000010000015f00000564fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000006e000005640000013200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000083d0000005efc0100000002fb0000000800540069006d006501000000000000083d000006dc00fffffffb0000000800540069006d00650100000000000004500000000000000000000005700000056400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

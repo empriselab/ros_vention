@@ -36,7 +36,7 @@ python src/ros_vention/src/controllers/basicmicro_arduino/vention_controller.py
 
 ## Load Vention RobotModel
 ```
-roslaunch ros_vention vention_description.launch
+roslaunch ros_vention description.launch
 ```
 
 ## Start Lidar
@@ -92,7 +92,7 @@ You can move the base by giving it a 2D nav goal in RViz.
 ## Capture Named Locations
 
 ```
-python src/ros_vention/scripts/capture_named_locations.py --locations microwave --locations-file /home/isacc/deployment_ws/src/feeding-deployment/config/nav_named_locations.yaml
+python src/ros_vention/scripts/capture_named_locations.py --locations sink_easy --locations-file /home/isacc/deployment_ws/src/feeding-deployment/config/nav_named_locations.yaml
 ```
 
 ## [Feeding-Deployment] Test Navigation
@@ -103,3 +103,12 @@ python /home/isacc/deployment_ws/src/feeding-deployment/src/feeding_deployment/i
 ```
 
 
+1. ```roslaunch ros_vention sensors.launch```
+2. navigation.launch + 
+ - cartographer_localization.launch
+ - cartographer_mapping.launch (map for the first time)
+
+python src/ros_vention/scripts/build_map_interactive.py \
+    --pbstream-file /home/isacc/deployment_ws/src/ros_vention/maps/4-28.pbstream
+
+Teleoperate with a controller: ```python src/ros_vention/src/controllers/basicmicro_arduino/vention_controller.py```

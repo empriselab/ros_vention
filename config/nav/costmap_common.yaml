@@ -7,22 +7,21 @@ obstacle_range: 8.0
 raytrace_range: 10.0
 
 # After detecting an obstacle, expand it outward by 0.35 meters.
-inflation_radius: 0.4
+inflation_layer:
+  inflation_radius: 0.05
 
-# TODO: update footprint to match your robot (meters)
+# Robot dimensions: 0.74 m (length, x) × 0.59 m (width, y), centered on base_link
 #            y
 #            ↑
-#   (-0.405, 0.355)      (0.405, 0.355)
+#   (0.37, 0.295)       (0.37, -0.295)
 #              ┌──────────────────────┐
 #              │                      │
-#              │        ROBOT         │
+#              │        ROBOT         │  → x
 #              │                      │
 #              └──────────────────────┘
-#   (-0.405,-0.355)      (0.405,-0.355)
-#                          → x
+#   (-0.37, 0.295)      (-0.37, -0.295)
 
-                          
-footprint: [[0.415, 0.365], [0.415, -0.365], [-0.415, -0.365], [-0.415, 0.365]]
+footprint: [[0.37, 0.295], [0.37, -0.295], [-0.37, -0.295], [-0.37, 0.295]]
 
 observation_sources: lidar_l lidar_r
 
@@ -31,9 +30,13 @@ lidar_l:
   topic: /lidar_l/scan
   marking: true
   clearing: true
+  min_obstacle_height: -2.0
+  max_obstacle_height: 2.0
 
 lidar_r:
   data_type: LaserScan
   topic: /lidar_r/scan
   marking: true
   clearing: true
+  min_obstacle_height: -2.0
+  max_obstacle_height: 2.0
